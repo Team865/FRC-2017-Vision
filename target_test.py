@@ -8,17 +8,17 @@ import numpy as np
 from networktables import NetworkTables
 import sys
 import logging
+from time import sleep
 logging.basicConfig(level=logging.DEBUG)
 
 if len(sys.argv) != 2:
-    print(sys.argv)
     print("Error: specify an IP to connect to!")
     exit(0)
 
 ip = sys.argv[1]
 NetworkTables.initialize(server=ip)
 sd = NetworkTables.getTable("data/vision")
-dd = NetworkTables.getTable("data/Drive")
+#dd = NetworkTables.getTable("data/Drive")
 
 # Setup SimpleBlobDetector parameters.
 params = cv2.SimpleBlobDetector_Params()
@@ -45,14 +45,17 @@ kernel = np.ones((5, 5), np.uint8)
 
 # hsv colour ranges
 lower_green_hsv = np.array([162,122,197], dtype=np.uint8)
-upper_green_hsv = np.array([180,255,255], dtype=np.uint8)
+upper_green_hsv = np.array([255,255,180], dtype=np.uint8)
 
 # rgb colour ranges 234, 0, 96
 #lower_green_rgb = np.array([96, 0, 234], dtype=np.uint8)
 #upper_green_rgb = np.array([124, 120, 255], dtype=np.uint8)
-lower_green_rgb = np.array([103, 112, 60], dtype=np.uint8)
-upper_green_rgb = np.array([181, 218, 198], dtype=np.uint8)
+lower_green_rgb = np.array([100-0, 140-0, 30-0], dtype=np.uint8)
+upper_green_rgb = np.array([190+0, 240+0, 125+0], dtype=np.uint8)
 
+oldError = 0
+errorSum = 0
+counter = 0
 
 # set the camera
 cam = cv2.VideoCapture(0)
@@ -88,10 +91,15 @@ while cv2.waitKey(1) != 1048603:
 	targets = []
 	targetContours = []
 	for i in range(len(contours)):
-		if cv2.contourArea(contours[i]) > 200:
-			rect1 = cv2.boundingRect(contours[i])		
-			targets.append(rect1)
-			targetContours.append(contours[i])
+		if cv2.contourArea(contours[i]) > 100:
+			rect1 = cv2.boundingRect(contours[i])
+			#if (rect1[2] > 30) and (rect1[2] < 100) and (rect1[3] > 5) and (rect1[3] < 92):
+                        #area = cv2.contourArea(contours[i])
+                        #hull = cv2.convexHull(contours[i])
+                        #hull_area = cv2.contourArea(hull)
+                        #solidity = float(area)/hull_area
+               		targets.append(rect1)
+                       	targetContours.append(contours[i])
 	
 	selectedTargets = []
 	selectedContours = []
@@ -119,28 +127,45 @@ while cv2.waitKey(1) != 1048603:
 		print selectedTargets
 		t1 = selectedTargets[0]
 		t2 = selectedTargets[1]
+		print t1[1]-t2[1]
 
-		distance = (0.5*(t1[1] + t2[1])+120)/480
-		offset = (320 - 0.5*(t1[0] + t2[0]))/320
+		offset = (320 - (0.5*(t1[0] + t2[0]) + 0.25*(t1[2] + t2[2])))/320
 		
-		offset = offset*distance		
+			
 		#angle_error = 1.65 -  abs(t1[0] - t2[0])/((t1[3] + t2[3])*0.5)
 		#print abs(t1[0] - t2[0])/((t1[3] + t2[3])*0.5)
 		angle_error = 0 #dd.getNumber('gyro_angle', 0)	
 		#PID CONTROL
-		P = -0.65
-		P_turn = 0.3
-		P_angle = 1
-		speed = P*distance
-		diff = P_turn*offset# + P_angle*angle_error
-		sd.putNumber('distance', P*distance)
-                sd.putNumber('offset',P_turn*offset)
-                sd.putNumber('angle', P_angle*angle_error)
+		# 0.875, 16, 6.5
+		P_turn = 0.5
+		D_turn = 12
+		I_turn = 2.5
+		
+		diff = (P_turn*offset) + ((offset-oldError)*D_turn/320) + I_turn*errorSum/320
+		oldError = offset
+		
+		counter += 1
+		errorSum += offset
+		if counter >= 1000:
+			errorSum = 0
+			counter = 0
+
+		if diff > 0.4:
+			diff = 0.4
+		if diff < -0.4:
+			diff = -0.4		
 	
+		zero = 0.1
+		if diff > 0:
+			zero = 0.1
+		else:
+			zero = -0.1
+
 		sd.putBoolean('found', True)
-		sd.putNumber('left', speed - diff)
-		sd.putNumber('right',speed + diff)
+		sd.putNumber('left', zero+diff)
+		sd.putNumber('right', -zero+-diff)
 	else:
+		errorSum = 0
 		print "f"
 		sd.putNumber('left', 0)
                 sd.putNumber('right',0)
