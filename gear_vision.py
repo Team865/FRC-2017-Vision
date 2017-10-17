@@ -127,13 +127,13 @@ while cv2.waitKey(1) != 1048603:
 		cv2.drawContours(img, selectedContours, -1, (0, 255, 0), 2)
 
 	if selectedTargets:
-		t1 = selectedTargets[0]
-		t2 = selectedTargets[1]
+		t1 = map(float, selectedTargets[0])
+		t2 = map(float, selectedTargets[1])
 
-		distance = float(1.0-((float(t1[1])+float(t2[1]))/2.0)/480.0)
-		offset = float(((((float(t1[0])+float(t1[2])/2.0) + (float(t2[0])+float(t2[2])/2.0))/2.0)-320.0)/320.0)
+		distance = 1.0-((t1[1]+t2[1])/2.0)/480.0
+		offset = ((((t1[0]+t1[2]/2.0) + (t2[0]+t2[2]/2.0))/2.0)-320.0)/320.0
 		
-		offset = offset*distance		
+		offset = offset*distance
 	#PID CONTROL
 		P = -1
 		P_turn = 0.75
