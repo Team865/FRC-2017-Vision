@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+#change the file name to the desired file
 file = 'output_gear_boiler.avi'
 cap = cv2.VideoCapture(file)
 
@@ -17,12 +18,13 @@ while(cap.isOpened()):
     cv2.imshow('video', frame)
 
     k = cv2.waitKey(1)
+    #if space is pressed
     if k%256 == 32:
 	modfile = file.replace(' ', '')[:-4]
 	filename = modfile + str(counter) + '.png'
         cv2.imwrite(filename, frame)
         counter += 1
-
+    #if escape is pressed
     if k%256 == 27:
         break
 
